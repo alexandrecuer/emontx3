@@ -31,7 +31,7 @@
 
 
 Change Log:
-V3.4   05/01/21 Slow down DS18B20 conversion - required for new batch of RJ45 temp sensors 
+V3.4   05/01/21 Slow down DS18B20 conversion - required for new batch of RJ45 temp sensors
 V3.3   05/12/19 Fix RFM factory test
 V3.2   27/08/19 Add watchdog reset
 V3.1   25/05/18 Add prompt for serial config
@@ -61,14 +61,11 @@ emonhub.conf node decoder (nodeid is 8 when switch is off, 7 when switch is on)
 See: https://github.com/openenergymonitor/emonhub/blob/emon-pi/configuration.md
 
 [[8]]
-    nodename = emonTx_3
-    firmware =V2_3_emonTxV3_4_DiscreteSampling
-    hardware = emonTx_(NodeID_DIP_Switch1:OFF)
     [[[rx]]]
-       names = power1, power2, power3, power4, Vrms, temp1, temp2, temp3, temp4, temp5, temp6, pulse
-       datacodes = h,h,h,h,h,h,h,h,h,h,h,L
-       scales = 1,1,1,1,0.01,0.1,0.1, 0.1,0.1,0.1,0.1,1
-       units =W,W,W,W,V,C,C,C,C,C,C,p
+       names = power1, power2, power3, power4, I1rms, I2rms, I3rms, I4rms, powF1, powF2, powF3, powF4, Vrms, temp1, temp2, temp3, temp4, temp5, temp6, pulse
+       datacodes = h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,L
+       scales = 1,1,1,1,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.1,0.1,0.1,0.1,0.1,0.1,1
+       units =W,W,W,W,A,A,A,A,1,1,1,1,V,C,C,C,C,C,C,p
 
 */
 
@@ -97,12 +94,12 @@ const byte TIME_BETWEEN_READINGS = 10;            //Time between readings
 
 //http://openenergymonitor.org/emon/buildingblocks/calibration
 
-const float Ical1=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
-const float Ical2=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
-const float Ical3=                90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
+const float Ical1=                90.8;//90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
+const float Ical2=                90.2;//90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
+const float Ical3=                90.5;//90.9;                                 // (2000 turns / 22 Ohm burden) = 90.9
 const float Ical4=                16.67;                               // (2000 turns / 120 Ohm burden) = 16.67
 
-float Vcal=                       268.97;                             // (230V x 13) / (9V x 1.2) = 276.9 Calibration for UK AC-AC adapter 77DB-06-09
+float Vcal=                       246.52;//268.97;                             // (230V x 13) / (9V x 1.2) = 276.9 Calibration for UK AC-AC adapter 77DB-06-09
 //float Vcal=276.9;
 //const float Vcal=               260;                             //  Calibration for EU AC-AC adapter 77DE-06-09
 const float Vcal_USA=             130.0;                             //Calibration for US AC-AC adapter 77DA-10-09
@@ -148,7 +145,7 @@ boolean RF_STATUS = 1;                                              // Enable RF
 // Note: Please update emonhub configuration guide on OEM wide packet structure change:
 // https://github.com/openenergymonitor/emonhub/blob/emon-pi/configuration.md
 typedef struct {
-  int power1, power2, power3, power4, Vrms, temp[MaxOnewire];
+  int power1, power2, power3, power4, I1rms, I2rms, I3rms, I4rms, powF1, powF2, powF3, powF4, Vrms, temp[MaxOnewire];
   unsigned long pulseCount;
 } PayloadTX;     // create structure - a neat way of packaging data for RF comms
 
@@ -235,7 +232,7 @@ void setup()
     Vcal=Vcal_USA;                                                        // Assume USA AC/AC adatper is being used, set calibration accordingly
     Vrms = Vrms_USA;                                                      /// USE 110V for USA apparent power
   }
- 
+
 
   Serial.println("POST.....wait 10s");
   Serial.println("'+++' then [Enter] for RF config mode");
@@ -412,6 +409,8 @@ void loop()
     if (ACAC) {
       ct1.calcVI(no_of_half_wavelengths,timeout);
       emontx.power1=ct1.realPower;
+      emontx.I1rms = ct1.Irms*100;
+      emontx.powF1 = ct1.powerFactor*100;
       emontx.Vrms=ct1.Vrms*100;
     } else {                                                  //apparent power calculation if AC-AC not connected
       emontx.power1 = ct1.calcIrms(no_of_samples)*Vrms;
@@ -423,6 +422,8 @@ void loop()
     if (ACAC) {
       ct2.calcVI(no_of_half_wavelengths,timeout);
       emontx.power2=ct2.realPower;
+      emontx.I2rms = ct2.Irms*100;
+      emontx.powF2 = ct2.powerFactor*100;
       emontx.Vrms=ct2.Vrms*100;
     } else {
       emontx.power2 = ct2.calcIrms(no_of_samples)*Vrms;
@@ -434,6 +435,8 @@ void loop()
     if (ACAC) {
       ct3.calcVI(no_of_half_wavelengths,timeout);
       emontx.power3=ct3.realPower;
+      emontx.I3rms = ct3.Irms*100;
+      emontx.powF3 = ct3.powerFactor*100;
       emontx.Vrms=ct3.Vrms*100;
     } else {
       emontx.power3 = ct3.calcIrms(no_of_samples)*Vrms;
@@ -445,6 +448,8 @@ void loop()
     if (ACAC) {
       ct4.calcVI(no_of_half_wavelengths,timeout);
       emontx.power4=ct4.realPower;
+      emontx.I4rms = ct4.Irms*100;
+      emontx.powF4 = ct4.powerFactor*100;
       emontx.Vrms=ct4.Vrms*100;
     } else {
       emontx.power4 = ct4.calcIrms(no_of_samples)*Vrms;
@@ -483,6 +488,14 @@ void loop()
     Serial.print(",ct2:"); Serial.print(emontx.power2);
     Serial.print(",ct3:"); Serial.print(emontx.power3);
     Serial.print(",ct4:"); Serial.print(emontx.power4);
+    Serial.print(",I1rms:"); Serial.print((float)emontx.I1rms/100);
+    Serial.print(",I2rms:"); Serial.print((float)emontx.I2rms/100);
+    Serial.print(",I3rms:"); Serial.print((float)emontx.I3rms/100);
+    Serial.print(",I4rms:"); Serial.print((float)emontx.I4rms/100);
+    Serial.print(",powF1:"); Serial.print((float)emontx.powF1/100);
+    Serial.print(",powF2:"); Serial.print((float)emontx.powF2/100);
+    Serial.print(",powF3:"); Serial.print((float)emontx.powF3/100);
+    Serial.print(",powF4:"); Serial.print((float)emontx.powF4/100);
     Serial.print(",vrms:"); Serial.print(emontx.Vrms);
     Serial.print(",pulse:"); Serial.print(emontx.pulseCount);
     if (DS18B20_STATUS==1){
